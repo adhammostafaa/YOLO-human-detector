@@ -1,0 +1,10 @@
+ultralytics>=8.3.0
+ensemble-boxes>=1.0.9
+opencv-python>=4.10.0
+torch>=2.4.0
+torchvision>=0.19.0
+numpy>=1.26.0
+pandas>=2.2.0
+matplotlib>=3.9.0
+Pillow>=10.4.0
+kagglehub>=0.3.0
