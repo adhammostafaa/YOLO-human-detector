@@ -1,46 +1,47 @@
-# Aerial & Nadir Drone Human Detection — Multi-Model YOLO Ensemble (`YOLO11` + `YOLOv9`)
+# Aerial & Nadir Drone Human Detection — 5-Architecture Heterogeneous Ensemble (`YOLO26` + `YOLO12` + `RT-DETR` + `YOLO11` + `YOLOv9`)
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.4%2B-EE4C2C?logo=pytorch&logoColor=white)
-![Ultralytics YOLO](https://img.shields.io/badge/Ultralytics-YOLO11%20%7C%20YOLOv9-00FFFF)
+![Ultralytics](https://img.shields.io/badge/Ultralytics-YOLO26%20%7C%20YOLO12%20%7C%20RT--DETR-00FFFF)
 ![OpenCV](https://img.shields.io/badge/OpenCV-CLAHE%20%26%20Geometry-5C3EE8?logo=opencv&logoColor=white)
-![GPU](https://img.shields.io/badge/Hardware-NVIDIA%20L4%20(24GB)-76B900?logo=nvidia&logoColor=white)
-![Competition Score](https://img.shields.io/badge/Competition%20mAP%400.50-0.8970-brightgreen)
+![Hardware](https://img.shields.io/badge/GPU-NVIDIA%20L4%20(24GB)-76B900?logo=nvidia&logoColor=white)
+![Competition Rank](https://img.shields.io/badge/Competition%20Result-2nd%20Place%20%7C%200.92397%20mAP%400.50-brightgreen)
 
-An end-to-end **Aerial & Nadir (`90°` Top-Down) Human Detection Pipeline** built for unmanned aerial vehicles (UAVs) operating across extreme altitude variations, arbitrary camera roll angles (`0°–360°`), wide aspect-ratio panorama crops, and low-light shadow conditions.
+An end-to-end **Aerial & Nadir (`90°` Top-Down) Human Detection System** engineered for unmanned aerial vehicles (UAVs) operating across extreme altitude variations, arbitrary `0°–360°` camera roll angles, wide aspect-ratio panorama crops, and severe shadow/low-light conditions.
 
-Developed for the **Alex Eagles AI Subteam — Human Detection Competition**, this system combines **fine-tuned aerial models (`YOLOv9c`, `YOLO11m` trained on `VisDrone2019-DET`)** with **large-scale pretrained feature extractors (`YOLO11x`, `YOLO11l`)**, **overlapping panorama tiling**, **CIE-LAB adaptive contrast recovery (`CLAHE`)**, and **nadir camera-geometry post-processing** to achieve **`0.8970 mAP@0.50`** on the competition benchmark and **`0.7058 mAP@0.50`** (`+19.46%` over baseline) on `VisDrone2019-DET-val`.
+Built for the **Alex Eagles AI Subteam — Human Detection Competition**, this system placed **2nd Overall (`0.92397 mAP@0.50`, within `0.0028` of 1st place)** using 100% public training data (`VisDrone2019-DET`) and zero test-set leakage. It unites **five distinct neural network families** — NMS-free **`YOLO26x`**, attention-centric **`YOLO12x`**, Vision Transformer **`RT-DETR-x`**, CNN **`YOLO11x`**, and a custom full-VisDrone fine-tuned **`nadir_yolo26m_960`** (`0.6902` single-model `mAP@0.50`) — with **adaptive 3×2 SAHI zoom tiling**, **full 4-way orientation TTA**, **Weighted Boxes Fusion (WBF) cross-architecture voting**, and **nadir camera-geometry post-processing**.
 
 ---
 
 ## Key Engineering Highlights
 
-* **+19.46% Validation `mAP@0.50` Gain via Disciplined Ablations:** Improved `VisDrone2019-DET` human detection accuracy from **`0.5112`** (baseline `YOLO11m @ 960px`) to **`0.7058`** through resolution scaling (`1280px`), PR-curve confidence calibration, NMS IoU tuning (`0.55`), cross-architecture diversity (`YOLOv9c` PGI/GELAN + `YOLO11m` C3k2), and **Weighted Boxes Fusion (WBF)**.
-* **6-Stage Multi-View Hybrid Nadir Inference Engine:** Combines full-frame multi-orientation passes (`0°`, `180°`, and conditional `90°`/`270°` rotations) with **3 overlapping horizontal panorama tiles (`0–48%`, `26–74%`, `52–100%`)** and a 4-pixel seam-clipping filter to eliminate boundary truncation on wide aerial crops (`~2038×714`).
-* **Cross-Domain Consensus Gating:** Prevents small-object aerial detectors (`YOLOv9c`) from hallucinating on high-frequency ground textures (gravel, foliage, shadows) by requiring moderate-confidence detections (`0.32 <= conf < 0.48`) to have spatial corroboration (`IoU >= 0.35`) from a second independent architecture.
-* **Nadir Camera-Physics & Containment NMS Post-Processing (`+3.9%` Competition Jump):** Designed two domain-specific geometric filters—**Containment Suppression (`IoM >= 0.45`)** and **Single-Frame Nadir Altitude Scale Consistency (`Area >= 0.14 × Area_max`)**—removing 140 nested and scale-impossible false positives and lifting the competition leaderboard score from **`0.858` to `0.897`**.
+* **2nd Place Competition Finish (`0.92397 mAP@0.50`):** Climbed systematically across **+6.5% leaderboard gains** (`0.859 → 0.897 → 0.9171 → 0.92397`) with **0 empty/dummy failure frames** across all 590 test scenes.
+* **+19.46% Validation `mAP@0.50` Gain & `0.6902` Single-Model Record:** Progressed on `VisDrone2019-DET` from **`0.5112`** (`YOLO11m @ 960px`) to **`0.6802`** (`YOLOv9c`), **`0.6902`** (custom **`nadir_yolo26m_960`** trained on all ~6,000 VisDrone human frames + **400 hard negative background images** + `flipud=0.5` + cosine LR), and **`0.7058`** via Weighted Boxes Fusion.
+* **True Cross-Architecture Diversity (CNNs + Area Attention + Vision Transformer):** Combining NMS-free `YOLO26x`, Area-Attention `YOLO12x`, pure Vision Transformer `RT-DETR-x` (global self-attention with zero upright CNN filter bias), `YOLO11x`, and `nadir_yolo26m_960` across 11 cached inference streams jumped competition accuracy from `0.897` to **`0.9171` → `0.92397`**.
+* **Adaptive 3×2 SAHI Zoom Grid + 4-Way Rotation TTA (`0°/90°/180°/270°`):** Automatically selects a **4×1 horizontal panorama slice** for wide rotated crops (`W/H > 2.0`, e.g., `2038×714`) or a **6-tile 3×2 overlapping zoom grid** for `16:9` frames (`1920×1080`), enlarging tiny `20px` high-altitude humans by `~3×` while discarding truncated boundary boxes via a 4-pixel seam guard.
+* **Nadir Camera-Physics & Containment NMS Post-Processing:** Designed **Containment Suppression (`IoM >= 0.45`)** to remove nested partial-body boxes and **Same-Frame Nadir Altitude Scale Consistency (`Area >= 0.14 × Area_max`)** based on flat-ground projective geometry to reject micro-texture gravel/shadow false positives.
 
 ---
 
 ## Visual Detection Gallery
 
-### 1. High-Resolution (`1280px`) Aerial Detection on `VisDrone2019-DET` (`IoU = 0.55`)
+### 1. Visual Diff: Custom Full-VisDrone `nadir_yolo26m_960` (`0.92397`) vs. Prior Baseline (`0.9171`)
+> **Green:** Boxes kept by both pipelines | **Blue:** Real humans rescued by `nadir_yolo26m_960` | **Red:** Rock, pole, bush, and pavement oil-stain false positives eliminated after training with 400 negative background frames and `flipud=0.5`.
+
+![Nadir YOLO26m Visual Diff](assets/nadir26m_vs_0917_diff.png)
+
+### 2. Titan 5-Architecture Ensemble on the 12 Hardest Nadir & Shadowed Scenes (`0` Missed Frames)
+> Including all 4 previously missed low-contrast/dark scenes (`test_00303`, `test_00326`, `test_00389`, `test_00480`) and dense multi-human dark-road frames (`test_00187`, `test_00356`, `test_00400`).
+
+![Titan 12 Hard Cases](assets/titan_12_hard_cases.png)
+
+### 3. High-Resolution (`1280px`) Aerial Detection on `VisDrone2019-DET` (`IoU = 0.55`)
 > **Green:** Ground-Truth Annotations | **Red:** Model Predictions (`YOLO11m` fine-tuned at `960px`, evaluated at `1280px`)
 
 ![VisDrone Validation Predictions](assets/val_1280px_iou55_predictions.png)
 
-### 2. 4-Model Multi-View Ensemble on Challenging Nadir & Rotated Frames
-> Detections produced by the 6-stage `YOLO11x + YOLO11l + YOLOv9c + YOLO11m` pipeline across arbitrary drone roll angles and wide cropped aspect ratios.
-
-![Multi-Model Hard Cases](assets/multi_model_hard_cases.png)
-
-### 3. Nadir Physics & Containment NMS Filtering
-> Multi-human top-down scenes after applying **Containment NMS (`IoM >= 0.45`)** to remove split upper/lower-body duplicate boxes and **Nadir Altitude Consistency** to reject background gravel false positives.
-
-![Nadir Physics Filtered Detections](assets/nadir_physics_filtered.jpg)
-
 ### 4. Low-Light & Inverted Frame Auto-Recovery (`CLAHE` + 4-Way Orientation Search)
-> Synthetic stress test on an upside-down (`180°`) and severely under-exposed (`alpha=0.45, beta=-20`) aerial frame. The pipeline triggers `CIE-LAB` lightness enhancement (`CLAHE`), evaluates all four cardinal orientations (`0°, 90°, 180°, 270°`), auto-detects the `180°` inversion, and maps bounding boxes back to the original coordinate space.
+> Synthetic stress test on an upside-down (`180°`) and severely under-exposed (`alpha=0.45, beta=-20`) aerial frame. `CIE-LAB` lightness enhancement (`CLAHE`) recovers shadow contrast while the 4-way orientation engine auto-detects the `180°` flip and projects boxes back to original coordinates.
 
 ![Dark Rotated Frame Recovery](assets/dark_rotated_recovery.png)
 
@@ -50,22 +51,26 @@ Developed for the **Alex Eagles AI Subteam — Human Detection Competition**, th
 
 ```mermaid
 flowchart TD
-    subgraph Training["Phase 1: Aerial Domain Fine-Tuning (VisDrone2019-DET)"]
-        VD["VisDrone2019-DET Raw Annotations<br/>(Pedestrian cat=1 & People cat=2)"] -->|"Filter & Normalize to Class 0"| DS["Drone Human Dataset<br/>2,500 Train / 400 Val Images"]
-        DS -->|"960px, HSV & Scale Aug, 20 Epochs"| M1["YOLO11m (C3k2 Backbone)<br/>Val mAP@0.50: 0.6672 @ 1280px"]
-        DS -->|"960px, HSV & Scale Aug, 20 Epochs"| M2["YOLOv9c (PGI + GELAN Backbone)<br/>Val mAP@0.50: 0.6802 @ 1280px"]
-        M1 & M2 -->|"Weighted Boxes Fusion (1.3 : 1.0)"| WBF["VisDrone WBF Ensemble<br/>Val mAP@0.50: 0.7058"]
+    subgraph Training["Phase 1: Public Aerial Domain Fine-Tuning (VisDrone2019-DET)"]
+        VD["VisDrone2019-DET Full Public Dataset<br/>(Pedestrian cat=1 & People cat=2 + 400 Negative Backgrounds)"] -->|"Normalize to Single Class 0: Human"| DS["Full Aerial Dataset<br/>~6,000 Human + 400 Background Images"]
+        DS -->|"960px, flipud=0.5, cos_lr=True, 15 Epochs"| M26["Custom nadir_yolo26m_960<br/>Single-Model Record: 0.6902 mAP@0.50 @ 1280px"]
+        DS -->|"Subset Ablations (2,500 Train / 400 Val)"| M119["YOLO11m (0.6672) + YOLOv9c (0.6802)<br/>WBF Ensemble: 0.7058 mAP@0.50"]
     end
 
-    subgraph Inference["Phase 2: 6-Stage Hybrid Nadir Inference Pipeline"]
-        IMG["Input Drone Frame (H x W)"] --> S1["Stage 1: Full-Frame 0° & 180°<br/>YOLO11x (w=1.0) + YOLO11l (w=0.96) @ 1280px"]
-        IMG --> S2["Stage 2: 3 Overlapping Panorama Tiles (0° & 180°)<br/>Windows: 0-48%, 26-74%, 52-100% @ 960px + 4px Seam Guard"]
-        IMG --> S3["Stage 3: VisDrone Aerial Pass + Consensus Gate<br/>YOLOv9c + YOLO11m @ 1280px (IoU >= 0.35 Agreement)"]
-        S1 & S2 & S3 --> GATE{"Max Conf < 0.48<br/>or Mean Luminance < 90?"}
-        GATE -->|"Yes (Hard/Dark Frame)"| S4["Stage 4: CIE-LAB CLAHE + 90°/270° Rescue<br/>YOLO11x Cardinal Rotations + YOLOv9c Enhanced Tiles"]
-        GATE -->|"No"| MERGE["Stage 5: Coordinate Un-Rotation & NMS Merge"]
-        S4 --> MERGE
-        MERGE --> PHYS["Stage 6: Nadir Physics & Containment NMS<br/>1. Containment Suppression (IoM >= 0.45)<br/>2. Altitude Scale Filter (Area >= 0.14 * MaxArea)<br/>3. Rotated Crop Box Expansion Compensation"]
+    subgraph Inference["Phase 2: 5-Architecture Heterogeneous Multi-View Inference Engine"]
+        IMG["Input Nadir Drone Frame (H x W)"] --> LUM{"Mean Luminance < 110?"}
+        LUM -->|"Yes (Shadow/Dark)"| CLAHE["CIE-LAB CLAHE (L-Channel Only)"]
+        LUM -->|"No"| RAW["Original Frame"]
+        CLAHE & RAW --> FULL["Full-Frame Cardinal Rotations (0°, 90°, 180°, 270°)<br/>YOLO26x + YOLO12x + RT-DETR-x + YOLO11x + nadir_yolo26m"]
+        CLAHE & RAW --> GRID["Adaptive SAHI Overlapping Grid + 4px Seam Guard<br/>W/H > 2.0: 4x1 Panorama Tiles | W/H <= 2.0: 3x2 Zoom Grid (6 Tiles)"]
+        FULL & GRID --> CACHE["11-Stream Raw Prediction Cache (JSON)<br/>Fast 3-Second Offline Fusion & Calibration"]
+    end
+
+    subgraph PostProc["Phase 3: WBF Consensus & Nadir Camera-Physics Filtering"]
+        CACHE --> WBF["Weighted Boxes Fusion (iou_thr=0.45)<br/>Sub-Pixel Edge Blending Across 5 Architectures"]
+        WBF --> VOTE["Cross-Architecture Consensus Voting<br/>Requires >=2 Families & Calibrated Vote Mass"]
+        VOTE --> PHYS["Geometric Post-Processing<br/>1. Containment NMS (IoM >= 0.45)<br/>2. Same-Frame Nadir Altitude Filter (Area >= 14% MaxArea)<br/>3. Aspect-Ratio-Aware Box Scale Calibration"]
+        PHYS --> FINAL["Final Predictions: 0.92397 mAP@0.50 (#2 Overall)"]
     end
 ```
 
@@ -73,62 +78,57 @@ flowchart TD
 
 ## Quantitative Ablation Study & Progression
 
-### 1. `VisDrone2019-DET` Validation Benchmark (`400` Images, `10,897` Human Instances)
+### 1. `VisDrone2019-DET` Validation Benchmark
 
-Every modification was benchmarked on a held-out validation set of 400 aerial scenes before being accepted into the pipeline:
+Every architectural and hyperparameter choice was validated on held-out aerial data before being promoted to the final pipeline:
 
 | Experiment Step | Model / Configuration | Inference Res | Conf / NMS IoU | Val `mAP@0.50` | Delta | Engineering Takeaway |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **1. Baseline** | `YOLO11m` fine-tuned (`960px`) | `960px` | `0.25` / `0.70` | `0.5112` | — | Default `conf=0.25` truncates the Precision-Recall tail on tiny aerial humans |
+| **1. Baseline** | `YOLO11m` fine-tuned (`960px`, 2.5k imgs) | `960px` | `0.25` / `0.70` | `0.5112` | — | Default `conf=0.25` truncates the Precision-Recall tail on tiny aerial humans |
 | **2. PR-Tail Calibration** | `YOLO11m` fine-tuned (`960px`) | `960px` | `0.01` / `0.70` | `0.6141` | `+0.1029` | Lowering validation confidence floor exposes high-recall distant detections |
-| **3. High-Res Scaling** | `YOLO11m` fine-tuned (`960px`) | `1280px` | `0.01` / `0.70` | `0.6582` | `+0.0441` | `1280px` preserves spatial stride resolution for `<20px` pedestrians |
-| **4. Built-in TTA (Rejected)** | `YOLO11m` + `augment=True` | `1280px` | `0.01` / `0.70` | `0.6423` | `-0.0159` | **Rejected:** Ultralytics multi-scale TTA includes a downscaled pass that blurs tiny humans |
-| **5. NMS IoU Sweep** | `YOLO11m` fine-tuned (`960px`) | `1280px` | `0.01` / `0.55` | `0.6672` | `+0.0090` | Swept `IoU in {0.45, 0.50, 0.55, 0.60, 0.70}`; `0.55` suppresses double-boxes without merging crowds |
-| **6. Second Architecture** | `YOLOv9c` fine-tuned (`960px`) | `1280px` | `0.01` / `0.55` | `0.6802` | `+0.0130` | `YOLOv9c` (PGI + GELAN) retains finer spatial gradients for low-contrast targets |
-| **7. Custom 101-Pt Eval** | `YOLO11m` vs `YOLOv9c` (COCO 101-pt PR) | `1280px` | `0.01` / `0.55` | `0.6815` / `0.6956` | — | Custom 101-point trapezoidal PR integrator built to score multi-model ensembles fairly |
-| **8. WBF Ensemble** | **`YOLOv9c` + `YOLO11m` (`1.3 : 1.0`)** | **`1280px`** | **`0.01` / `0.55`** | **`0.7058`** | **`+0.0102`** | **Weighted Boxes Fusion** averages box coordinates across both architectures (`+19.46%` total gain) |
+| **3. High-Res Scaling** | `YOLO11m` fine-tuned (`960px`) | `1280px` | `0.01` / `0.70` | `0.6582` | `+0.0441` | `1280px` preserves stride resolution for `<20px` pedestrians |
+| **4. Built-in TTA (Rejected)** | `YOLO11m` + `augment=True` | `1280px` | `0.01` / `0.70` | `0.6423` | `-0.0159` | **Rejected:** Multi-scale downsampled pass blurs tiny aerial humans |
+| **5. NMS IoU Sweep** | `YOLO11m` fine-tuned (`960px`) | `1280px` | `0.01` / `0.55` | `0.6672` | `+0.0090` | Swept `{0.45, 0.50, 0.55, 0.60, 0.70}`; `0.55` removes double-boxes cleanly |
+| **6. Second Architecture** | `YOLOv9c` fine-tuned (`960px`, 2.5k imgs) | `1280px` | `0.01` / `0.55` | `0.6802` | `+0.0130` | `YOLOv9c` (PGI + GELAN) improves feature retention for small humans |
+| **7. Full-Data + Negatives** | **`nadir_yolo26m_960` (All ~6k imgs + 400 BG + `flipud=0.5`)** | **`1280px`** | **`0.01` / `0.55`** | **`0.6902`** | **`+0.0100`** | **New Single-Model Record:** Background negatives + `flipud` crush false rocks |
+| **8. WBF Ensemble** | **`YOLOv9c` + `YOLO11m` (`1.3 : 1.0`, custom 101-pt PR)** | **`1280px`** | **`0.01` / `0.55`** | **`0.7058`** | **`+0.0102`** | **Weighted Boxes Fusion** averages edges across architectures (`+19.46%` total) |
 
 ---
 
 ### 2. Competition Test Benchmark (`590` Nadir & Augmented Campus Drone Frames)
 
-The competition evaluation set introduced a severe **domain shift**: images were captured from a **straight nose-down (`90°` nadir) camera angle** and transformed with `Albumentations` (`Rotate(limit=180, crop_border=True)` + photometric jitter), producing wide cropped panoramas (`~2038×714`) alongside `1920×1080` frames.
+The competition evaluation set introduced a severe domain shift: **`90°` straight-down (nadir)** drone views augmented with `Albumentations` (`Rotate(limit=180, crop_border=True)` + photometric jitter), creating wide cropped panoramas (`~2038×714`) mixed with `1920×1080` frames.
 
-| Pipeline Iteration | Key Engineering Change | Leaderboard Score (`mAP@0.50`) |
-| :--- | :--- | :---: |
-| **Hybrid Nadir Tiled Baseline** | Combined `YOLO11l` (`0°/180°` full-frame + 3 overlapping horizontal tiles) + `VisDrone YOLOv9c` | `0.2000` *(pre-metric fix)* |
-| **Rotated-Box Expansion Compensation** | Compensated for axis-aligned bounding-box bloat on rotated crops (`1.28× w, 1.35× h` when `(W, H) != (1920, 1080)`) | `0.8590` *(post-metric update)* |
-| **4-Model Multi-View Rescue (`v2`)** | Added `YOLO11x`, `180°` rotated tiles, VisDrone consensus gate, and conditional `CLAHE` + `90°/270°` rescue pass | `0.8580` *(rescued hard frames, but exported 1,047 boxes with 140 duplicates/rocks)* |
-| **Nadir Physics & Containment NMS** | Added **Containment NMS (`IoM >= 0.45`)** + **Same-Frame Altitude Scale Consistency (`Area >= 0.14 × Area_max`)** (`907` clean boxes) | **`0.8970`** |
+| Pipeline Iteration | Key Engineering Change | Total Boxes | Leaderboard `mAP@0.50` |
+| :--- | :--- | :---: | :---: |
+| **Hybrid Nadir Tiled Baseline** | `YOLO11l` (`0°/180°` + 3 horizontal tiles) + VisDrone `YOLOv9c` | `1,032` | `0.8590` |
+| **4-Model Multi-View (`v2`)** | Added `YOLO11x`, `180°` tiles, consensus gate, conditional CLAHE + `90°/270°` | `1,047` | `0.8580` |
+| **Nadir Physics + Containment NMS** | Added **Containment NMS (`IoM >= 0.45`)** + **Nadir Altitude Filter (`>= 14%`)** | `907` | `0.8970` (`+3.9%`) |
+| **Titan 5-Architecture + 3×2 SAHI + WBF** | Upgraded to **`YOLO26x + YOLO12x + RT-DETR-x + YOLO11x + YOLOv9c`**, full 4-way rotation, adaptive 3×2 zoom grid, WBF voting, fixed 16:9 box bloat (`0` dummies) | `954` | `0.9171` (`+2.01%`) |
+| **Full-VisDrone `nadir_yolo26m_960` Swap** | Replaced `YOLOv9c` with custom **`nadir_yolo26m_960`** (`0.6902`, trained with 400 negative backgrounds + `flipud=0.5`) & golden-zone consensus calibration | `952` | **`0.92397` (#2 Place)** |
+
+*(Negative ablations verified and rejected: aggressive precision pruning at `886` boxes dropped to `0.8949`; over-recall at `1,008` boxes dropped to `0.8815`; adding `45°/135°` affine border-replicated diagonal passes introduced corner-smearing noise and dropped to `0.904`.)*
 
 ---
 
 ## Core Technical Solutions Explained
 
 ### 1. Exact Analytical Inverse-Rotation Coordinate Mapping
-To detect humans oriented at arbitrary roll angles without training separate models per angle, frames are evaluated across cardinal rotations (`0°, 90° CW, 180°, 270° CCW`) and mapped back into the original normalized `[x1, y1, x2, y2]` coordinate space using exact closed-form transforms:
+Every image is evaluated across cardinal orientations (`0°, 90° CW, 180°, 270° CCW`) and mapped back to normalized `[x1, y1, x2, y2]` coordinates without interpolation loss:
+* **`180°` Inversion:** $[x_1, y_1, x_2, y_2] = [1 - u_2,\; 1 - v_2,\; 1 - u_1,\; 1 - v_1]$
+* **`90°` Clockwise:** $[x_1, y_1, x_2, y_2] = [v_1,\; 1 - u_2,\; v_2,\; 1 - u_1]$
+* **`270°` Counter-Clockwise:** $[x_1, y_1, x_2, y_2] = [1 - v_2,\; u_1,\; 1 - v_1,\; u_2]$
 
-* **`180°` Inversion:**
-  $$[x_1, y_1, x_2, y_2]_{\text{orig}} = [1 - u_2,\; 1 - v_2,\; 1 - u_1,\; 1 - v_1]$$
-* **`90°` Clockwise Rotation:**
-  $$[x_1, y_1, x_2, y_2]_{\text{orig}} = [v_1,\; 1 - u_2,\; v_2,\; 1 - u_1]$$
-* **`270°` Counter-Clockwise Rotation:**
-  $$[x_1, y_1, x_2, y_2]_{\text{orig}} = [1 - v_2,\; u_1,\; 1 - v_1,\; u_2]$$
+### 2. Adaptive SAHI Overlapping Grid with 4-Pixel Seam Guard
+* **Wide Rotated Panoramas (`W / H > 2.0`):** 4 overlapping horizontal windows (`0–38%`, `20–58%`, `42–80%`, `62–100%`).
+* **Standard `16:9` Frames (`W / H <= 2.0`):** 6-tile **3×2 overlapping grid** (`x`: `0–44%`, `28–72%`, `56–100%` × `y`: `0–60%`, `40–100%`), giving tiny high-altitude humans `~3×` higher effective resolution inside the detector.
+* Any detection touching an internal cut seam (`<= 4px`) is discarded because adjacent overlapping tiles capture the complete body cleanly.
 
-### 2. Overlapping Panorama Tiling with Seam-Truncation Guard
-Wide cropped panoramas (`~2038×714`) lose horizontal resolution when letterboxed into a square `1280×1280` tensor. We slice each frame into **3 heavily overlapping horizontal windows**:
-* **Left Tile:** $[0,\; 0.48W]$
-* **Center Tile:** $[0.26W,\; 0.74W]$
-* **Right Tile:** $[0.52W,\; W]$
-
-Because adjacent windows overlap by `22%` of total image width, any human standing on a tile cut line is guaranteed to appear completely inside the neighboring tile. A **4-pixel internal boundary guard** (`(xs > 0 and tx1 <= 4) or (xe < W and tx2 >= tw - 4)`) discards partial half-body detections touching internal tile seams before global coordinate projection.
-
-### 3. Containment NMS (`IoM`) & Nadir Altitude Scale Consistency
-In a 5-token evaluation format (`class x_center y_center width height` without confidence scores), every exported false positive carries the same weight as a true positive:
-1. **Containment NMS (Intersection over Minimum Area):** Standard NMS (`IoU = Intersection / Union >= 0.40`) fails when a small detection (e.g., upper torso/head) sits completely inside a larger full-body detection, because the large denominator keeps `IoU ~ 0.25–0.35`. We compute:
+### 3. Containment NMS (`IoM`) & Nadir Camera Altitude Consistency
+1. **Containment Suppression (Intersection over Minimum Area):** Standard NMS (`IoU >= 0.40`) fails to suppress a small head/torso box nested inside a full-body box because the large union keeps `IoU` low (`~0.25–0.35`). Computing:
    $$\text{IoM}(B_1, B_2) = \frac{\text{Area}(B_1 \cap B_2)}{\min(\text{Area}(B_1), \text{Area}(B_2))}$$
-   Any lower-confidence box with $\text{IoM} \ge 0.45$ inside a higher-confidence box is suppressed.
-2. **Nadir Camera Altitude Scale Filter:** Unlike tilted street cameras where perspective creates `10×` scale differences between foreground and background pedestrians, a **`90°` nadir (straight-down) drone camera** captures a flat ground plane at a single fixed altitude $Z$. Therefore, all humans in the same frame share approximately the same physical pixel area. Any secondary detection with $\text{Area} < 0.14 \times \text{Area}_{\max}$ within the same frame is rejected as a micro-texture false positive.
+   suppresses nested duplicates whenever $\text{IoM} \ge 0.45$.
+2. **Nadir Altitude Scale Filter:** On a straight-down (`90°`) drone frame over flat terrain, all humans lie at approximately the same lens distance $Z$. Secondary boxes smaller than `14%` of the frame's primary human area are rejected as background micro-texture false positives (with a high-confidence 4-architecture consensus override for crouched/partially occluded humans).
 
 ---
 
@@ -136,20 +136,23 @@ In a 5-token evaluation format (`class x_center y_center width height` without c
 
 ```text
 YOLO-human-detector/
-├── YOLO_human_detector.ipynb                      # Complete end-to-end training, validation & 6-stage inference notebook
-├── README.md                                      # Project documentation, architecture & ablation study
-├── requirements.txt                               # Python dependencies (Ultralytics, PyTorch, OpenCV, Ensemble-Boxes)
+├── YOLO_human_detector.ipynb                      # Complete end-to-end training, validation & 5-architecture pipeline
+├── README.md                                      # Project documentation, architecture diagram & ablation tables
+├── requirements.txt                               # Python dependencies (Ultralytics 8.4+, PyTorch, OpenCV, Ensemble-Boxes)
 ├── configs/
-│   └── drone_human.yaml                           # Ultralytics single-class human dataset configuration
+│   ├── drone_human.yaml                           # Initial VisDrone human dataset config
+│   └── nadir_public.yaml                          # Full VisDrone + 400 background negatives config
 ├── assets/
-│   ├── visdrone_ground_truth.png                  # VisDrone-to-YOLO annotation conversion verification
+│   ├── nadir26m_vs_0917_diff.png                  # Visual diff showing nadir_yolo26m_960 gains (0.9171 -> 0.92397)
+│   ├── titan_12_hard_cases.png                    # Titan 5-architecture detections on 12 hardest nadir frames
 │   ├── val_1280px_iou55_predictions.png           # 1280px + IoU=0.55 Ground Truth vs Prediction comparison
 │   ├── dark_rotated_recovery.png                  # CLAHE + 4-way orientation auto-recovery demo
-│   ├── nosedown_tiled_hybrid.png                  # Hybrid tiled nadir detections
-│   ├── multi_model_hard_cases.png                 # 4-model multi-view detections on hard test cases
+│   ├── visdrone_ground_truth.png                  # VisDrone-to-YOLO annotation conversion verification
+│   ├── nosedown_tiled_hybrid.png                  # Early hybrid tiled nadir detections
+│   ├── multi_model_hard_cases.png                 # 4-model multi-view baseline comparison
 │   └── nadir_physics_filtered.jpg                 # Containment NMS & Nadir Altitude filtering results
 └── submissions/
-    └── submission_5token_physics_cleaned.csv      # Final 0.8970 mAP@0.50 competition predictions
+    └── submission_5token_physics_cleaned.csv      # Reference physics-cleaned 5-token submission format
 ```
 
 ---
@@ -164,11 +167,10 @@ pip install -r requirements.txt
 ```
 
 ### 2. Running the Notebook (Google Colab / Local GPU)
-Open [`YOLO_human_detector.ipynb`](YOLO_human_detector.ipynb) in **Google Colab** (recommended: `NVIDIA L4` or `T4` GPU) or a local Jupyter server:
-* **Step 1 (Data Engineering):** Automatically downloads `VisDrone2019-DET-train` and `VisDrone2019-DET-val`, extracts human categories (`1: pedestrian`, `2: people`), normalizes bounding boxes to YOLO `xywhn` format, and builds `/content/datasets/drone_human`.
-* **Steps 2–5 (Training & Validation Tuning):** Fine-tunes `YOLO11m` and `YOLOv9c` at `960px` (`batch=8`, `20` epochs, HSV/scale augmentation) and runs resolution (`1280px`) and NMS IoU (`0.55`) ablations.
-* **Step 6 (Weighted Boxes Fusion):** Runs the `YOLOv9c + YOLO11m` WBF ensemble and evaluates with the custom 101-point COCO PR integrator (`0.7058 mAP@0.50`).
-* **Steps 7–8 (6-Stage Hybrid Nadir Inference):** Runs the 4-model multi-view tiled detector with `CLAHE`, `Containment NMS`, and `Nadir Altitude Filtering` to generate `submission_v2_5token.csv`.
+Open [`YOLO_human_detector.ipynb`](YOLO_human_detector.ipynb) in **Google Colab** (`NVIDIA L4` or `T4` GPU):
+* **Steps 1–6:** Downloads public `VisDrone2019-DET`, trains `YOLO11m` and `YOLOv9c`, tunes inference resolution (`1280px`) and NMS `iou` (`0.55`), and benchmarks the `0.7058 mAP@0.50` WBF ensemble.
+* **Steps 9–10:** Runs the **5-Architecture Titan Engine** (`YOLO26x + YOLO12x + RT-DETR-x + YOLO11x + YOLOv9c`) across 4-way rotations and the adaptive 3×2 SAHI grid, caching raw streams to JSON and fusing via WBF + Nadir Physics (`0.9171`).
+* **Steps 11–13:** Trains **`nadir_yolo26m_960`** on full public VisDrone + 400 negative background images with `flipud=0.5` (`0.6902` single-model record), swaps it into the Titan cache, and runs final golden-zone calibration (**`0.92397` — 2nd Place Overall**).
 
 ---
 
